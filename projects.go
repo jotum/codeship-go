@@ -228,3 +228,17 @@ func (o *Organization) UpdateProject(ctx context.Context, projectUUID string, p 
 
 	return project.Project, resp, nil
 }
+
+// ResetAESKey Resets the AES key for a Project
+//
+// Codeship API docs: https://apidocs.codeship.com/v2/projects/reset-aes-key
+func (o *Organization) ResetAESKey(ctx context.Context, projectUUID string) (bool, Response, error) {
+	path := fmt.Sprintf("/organizations/%s/projects/%s/reset_aes_key", o.UUID, projectUUID)
+
+	_, resp, err := o.client.request(ctx, "POST", path, nil)
+	if err != nil {
+		return false, resp, errors.Wrap(err, "unable to reset project's AES key")
+	}
+
+	return true, resp, nil
+}
