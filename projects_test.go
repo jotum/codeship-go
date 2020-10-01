@@ -598,3 +598,84 @@ func TestProjectType_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestResetAESkey(t *testing.T) {
+	type args struct {
+		organizationUUID string
+		projectUUID      string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		handler http.HandlerFunc
+		status  int
+		err     string
+	}{
+		{
+			name: "success",
+			args: args{
+				organizationUUID: "28123f10-e33d-5533-b53f-111ef8d7b14f",
+				projectUUID:      "0059df30-7701-0135-8810-6e5f001a2e3c",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert := assert.New(t)
+				assert.Equal("POST", r.Method)
+				assert.Equal("application/json", r.Header.Get("Content-Type"))
+				assert.Equal("application/json", r.Header.Get("Accept"))
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusAccepted)
+				fmt.Fprint(w)
+			},
+			status: http.StatusAccepted,
+		},
+		{
+			name: "project not found",
+			args: args{
+				organizationUUID: "28123f10-e33d-5533-b53f-111ef8d7b14f",
+				projectUUID:      "0059df30-7701-0135-8810-6e5f001a2e3c",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert := assert.New(t)
+				assert.Equal("POST", r.Method)
+				assert.Equal("application/json", r.Header.Get("Content-Type"))
+				assert.Equal("application/json", r.Header.Get("Accept"))
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprint(w, fmt.Sprintf(fixture("not_found.json"), "project"))
+			},
+			status: http.StatusNotFound,
+			err:    "unable to reset project's AES key: project not found",
+		},
+	}
+
+	assert := assert.New(t)
+	require := require.New(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			teardown := setup()
+			defer teardown()
+
+			mux.HandleFunc(fmt.Sprintf("/organizations/%s/projects/%s/reset_aes_key",
+				tt.args.organizationUUID,
+				tt.args.projectUUID),
+				tt.handler)
+
+			success, resp, err := org.ResetAESKey(context.Background(), tt.args.projectUUID)
+
+			require.NotNil(resp)
+			assert.Equal(tt.status, resp.StatusCode)
+
+			if tt.err != "" {
+				require.Error(err)
+				assert.EqualError(err, tt.err)
+				return
+			}
+
+			require.NoError(err)
+			assert.True(success)
+		})
+	}
+}
